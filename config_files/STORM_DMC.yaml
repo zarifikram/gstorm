@@ -1,0 +1,77 @@
+Task: "JointTrainAgent"
+
+BasicSettings:
+  Seed: 0
+  ImageSize: 64
+  ReplayBufferOnGPU: True
+  Base: "/space/mlica"
+  Environment: "ALE/Boxing-v5"
+  n: "Atari-MaskGit"
+  config_path: "config_files/STORM_DMC.yaml"
+  env_name: "walker"
+  task_name: "walk"
+  trajectory_path: "trajectories/Atari/Atari.pkl"
+  pretrained_path: None
+  device: "cuda"
+
+wandb:
+  project_name: "GS-transformer"
+  log: True
+  exp_name: "STORM"
+
+hydra:
+  run:
+      dir: /projects/0/prjs0951/STORM-DMC
+
+JointTrainAgent:
+  ModelType: STORM
+  SampleMaxSteps: 1002000 # 102000
+  BufferMaxLength: 100000
+  BufferWarmUp: 1024 #1024
+  NumEnvs: 4
+  BatchSize: 16
+  DemonstrationBatchSize: 4
+  BatchLength: 64 #64
+  ImagineBatchSize: 1024 #1024
+  ImagineDemonstrationBatchSize: 256
+  ImagineContextLength: 8
+  ImagineBatchLength: 16 #16
+  TrainDynamicsEverySteps: 4
+  TrainAgentEverySteps: 4
+  UseDemonstration: False
+  SaveEverySteps: 100000 #2500
+  ActionRepeat: 2
+
+Models:
+  WorldModel:
+    InChannels: 3
+    TransformerMaxLength: 64
+    TransformerHiddenDim: 512
+    TransformerNumLayers: 2
+    TransformerNumHeads: 8
+    MixerType: concat #concat, concat+attn, z+attn 
+
+  Agent:
+    NumLayers: 2
+    HiddenDim: 512
+    Gamma: 0.985
+    Lambda: 0.95
+    EntropyCoef: 1E-4
+
+  MaskGit:
+    VocabSize: 32
+    VocabDim: 128
+    T_revise: 1
+    T_draft: 1
+    M: 1
+    MaskSchedule: "cosine"
+    TmfArgs:
+      EmbedDim: 128
+      MlpDim: 128
+      NumHeads: 8
+      NumLayers: 4
+      Dropout: 0.0
+      AttentionDropout: 0.0
+
+
+compile: False
