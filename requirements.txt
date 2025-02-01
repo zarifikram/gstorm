@@ -11,3 +11,4 @@ tqdm
 opencv-python
 gymnasium[atari,accept-rom-license]
 hydra-core
+tensordict

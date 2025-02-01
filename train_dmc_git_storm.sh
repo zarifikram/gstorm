@@ -1,22 +1,16 @@
 #!/bin/bash
 
-
-# TODO: if you are running on a cluster, change the info below to match your cluster's configuration.
-#SBATCH -J WeatherForcastDMCGITSTORM
+#SBATCH --partition=long                           # Ask for unkillable job
 #SBATCH -n 1
-#SBATCH -p gpu_h100
-#SBATCH -t 0-12:00:00
-#SBATCH --cpus-per-task 18 
+#SBATCH --gres=gpu:1
+#SBATCH -t 0-22:00:00
+#SBATCH --cpus-per-task 1
 #SBATCH --gpus 1 
-#SBATCH --mail-type=END
-#SBATCH --mail-user=itiszikram@gmail.com
-#SBATCH --mem=94G
+#SBATCH --mem=16G                                        # Ask for 10 GB of RAM
 
-# TODO: chnage these lines according to your cluster's configuration
-module load 2023
-module load Miniconda3/23.5.2-0
-conda init
-source activate STORM
+module load python/3.10
+
+source $HOME/scratch/storm/bin/activate
 
 mkdir logs
 

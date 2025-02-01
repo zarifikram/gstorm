@@ -13,10 +13,12 @@ BasicSettings:
   trajectory_path: "trajectories/Atari/Atari.pkl"
   pretrained_path: None
   device: "cuda"
+  continuous_action: False
+
 
 wandb:
   project_name: "GS-transformer"
-  log: True
+  log: False
   exp_name: "STORM"
 
 hydra:

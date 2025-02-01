@@ -1,22 +1,16 @@
 #!/bin/bash
 
-
-# TODO: if you are running on a cluster, change the info below to match your cluster's configuration.
-#SBATCH -J WeatherForcastDMCSTORM
+#SBATCH --partition=long                           # Ask for unkillable job
 #SBATCH -n 1
-#SBATCH -p gpu_h100
-#SBATCH -t 0-03:00:00
-#SBATCH --cpus-per-task 18 
+#SBATCH --gres=gpu:1
+#SBATCH -t 22:00:00
+#SBATCH --cpus-per-task 1
 #SBATCH --gpus 1 
-#SBATCH --mail-type=END
-#SBATCH --mail-user=itiszikram@gmail.com
-#SBATCH --mem=94G
+#SBATCH --mem=64G                                        # Ask for 10 GB of RAM
 
-# TODO: chnage these lines according to your cluster's configuration
-module load 2023
-module load Miniconda3/23.5.2-0
-conda init
-source activate STORM
+module load python/3.10
+
+source $HOME/scratch/storm/bin/activate
 
 mkdir logs
 
@@ -28,7 +22,7 @@ seed=$3
 
 exp_name=${env_name}_${task_name}-STORM-life_done-wm_2L512D8H-1M-seed_${seed}
 wandb_exp_name=storm_${env_name}${task_name}_seed${seed}
-proj_name=GIT-STORM-Benchmark
+proj_name=BS-STORM-Test
 MUJOCO_GL=egl nohup python train_dmc.py  --config-name STORM_DMC  \
 BasicSettings.n=${exp_name} \
 BasicSettings.Seed=${seed} \

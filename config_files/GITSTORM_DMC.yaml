@@ -13,6 +13,8 @@ BasicSettings:
   trajectory_path: "trajectories/Atari/Atari.pkl"
   pretrained_path: None
   device: "cuda"
+  continuous_action: False
+
 
 wandb:
   project_name: "GS-num_layers"

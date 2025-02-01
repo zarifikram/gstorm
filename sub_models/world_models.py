@@ -232,6 +232,7 @@ class WorldModel(nn.Module):
         self.imagine_batch_size = -1
         self.imagine_batch_length = -1
         self.device = device
+        self.is_continuous_action = conf.BasicSettings.continuous_action
 
         self.encoder = EncoderBN(
             in_channels=in_channels,
@@ -248,7 +249,7 @@ class WorldModel(nn.Module):
             dropout=0.1,
             device=device,
             state_mix_type=conf.Models.WorldModel.MixerType,
-            continuous_action=True
+            continuous_action=conf.BasicSettings.continuous_action
         )
         self.dist_head = DistHead(
             image_feat_dim=self.encoder.last_channels*self.final_feature_width*self.final_feature_width,
@@ -332,12 +333,6 @@ class WorldModel(nn.Module):
             dist_feat = self.storm_transformer.forward_with_kv_cache(last_flattened_sample, action)
             sample_shape=(self.stoch_dim)
             rdist = rearrange(dist_feat, "B L (K C) -> (B L) K C", K=self.stoch_dim)
-            # with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
-            #     with record_function("model_inference"):
-            #         prior_sample =  self.maskgit.sample(rdist.shape[0], self.T_draft, self.T_revise, self.M, cond=rdist, sample_shape=sample_shape)
-            # print(f"in batch_predict_next")
-            # print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
-            # print(prof.key_averages(group_by_input_shape=True).table(sort_by="cpu_time_total", row_limit=10))
 
             prior_sample =  self.maskgit.sample(rdist.shape[0], self.T_draft, self.T_revise, self.M, cond=rdist, sample_shape=sample_shape)
             prior_sample = rearrange(prior_sample, "(B L) K -> B L K", B=B)
@@ -409,7 +404,7 @@ class WorldModel(nn.Module):
 
     def imagine_data(self, agent: agents.ActorCriticAgent, sample_obs, sample_action,
                      imagine_batch_size, imagine_batch_length, log_video, logger):
-        self.init_imagine_buffer(imagine_batch_size, imagine_batch_length, dtype=self.tensor_dtype, action_dim=sample_action.shape[-1])
+        self.init_imagine_buffer(imagine_batch_size, imagine_batch_length, dtype=self.tensor_dtype, action_dim=sample_action.shape[-1] if self.is_continuous_action else None)
         obs_hat_list = []
 
 
@@ -439,7 +434,6 @@ class WorldModel(nn.Module):
             frames = (torch.clamp(torch.cat(obs_hat_list, dim=1), 0, 1) * 255).cpu().int().detach().numpy()
             logger.log("Imagine/predict_video", frames)
             wandb.log({"Imagine/predict_video": wandb.Video(frames, fps=4)})
-        # print(f"self.latent_buffer shape {self.latent_buffer.shape} self.hidden_buffer shape {self.hidden_buffer.shape}")
         return torch.cat([self.latent_buffer, self.hidden_buffer], dim=-1), self.action_buffer, self.reward_hat_buffer, self.termination_hat_buffer
 
     def update(self, obs, action, reward, termination, logger=None):
@@ -522,6 +516,8 @@ class STORMWorldModel(nn.Module):
         self.imagine_batch_size = -1
         self.imagine_batch_length = -1
         self.device = device
+        self.is_continuous_action = conf.BasicSettings.continuous_action
+
 
         self.encoder = EncoderBN(
             in_channels=in_channels,
@@ -538,7 +534,7 @@ class STORMWorldModel(nn.Module):
             dropout=0.1,
             device=device,
             state_mix_type=conf.Models.WorldModel.MixerType,
-            continuous_action=True
+            continuous_action=conf.BasicSettings.continuous_action
         )
         self.dist_head = DistHead(
             image_feat_dim=self.encoder.last_channels*self.final_feature_width*self.final_feature_width,
@@ -640,7 +636,7 @@ class STORMWorldModel(nn.Module):
 
     def imagine_data(self, agent: agents.ActorCriticAgent, sample_obs, sample_action,
                      imagine_batch_size, imagine_batch_length, log_video, logger):
-        self.init_imagine_buffer(imagine_batch_size, imagine_batch_length, dtype=self.tensor_dtype, action_dim=sample_action.shape[-1])
+        self.init_imagine_buffer(imagine_batch_size, imagine_batch_length, dtype=self.tensor_dtype, action_dim=sample_action.shape[-1] if self.is_continuous_action else None)
         obs_hat_list = []
 
         self.storm_transformer.reset_kv_cache_list(imagine_batch_size, dtype=self.tensor_dtype)

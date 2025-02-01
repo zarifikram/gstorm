@@ -173,7 +173,7 @@ class ActorCriticAgent(nn.Module):
 
     def sample_as_env_action(self, latent, greedy=False):
         action = self.sample(latent, greedy)
-        return action.detach().float().squeeze(0).cpu().numpy()
+        return action.detach().squeeze(0).cpu().numpy() if self.dist == "categorical" else action.detach().float().squeeze(0).cpu().numpy()
 
     def update(
         self, latent, action, old_logprob, old_value, reward, termination, logger=None

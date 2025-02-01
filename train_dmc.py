@@ -306,17 +306,16 @@ def build_agent(conf, action_dim, device: torch.device):
 def _wandb_init(cfg: DictConfig):
         ## Convert Omega Config to Wandb Config (letting wandb know of the config for current run)
         config_dict = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True) ###TODO: check if model / global config ?
-        print(F"expname {cfg.wandb.exp_name}")
         if cfg.wandb.log:
             mode = "online"
         else:
             mode = "disabled"
 
         wandb_run = wandb.init(config=config_dict, project=cfg.wandb.project_name, name=cfg.wandb.exp_name,
-                                    mode=mode)  # wandb object has a set of configs associated with it as well 
+                                    mode=mode, entity="zarifikram")  # wandb object has a set of configs associated with it as well 
         return wandb_run
 
-@hydra.main(config_path="../GIT-STORM-DMC/config_files", config_name="DMC", version_base="1.1")
+@hydra.main(config_path="../gstorm/config_files", config_name="STORM_DMC", version_base="1.1")
 def main(conf: DictConfig):  
     # ignore warnings
     

@@ -53,6 +53,61 @@ def train_world_model_step(replay_buffer: ReplayBuffer, world_model: WorldModel,
     obs, action, reward, termination = replay_buffer.sample(batch_size, demonstration_batch_size, batch_length)
     world_model.update(obs, action, reward, termination, logger=logger)
 
+@torch.no_grad()
+def eval_episodes(num_episode, env_name, max_steps, num_envs, image_size,
+                  world_model: WorldModel, agent: agents.ActorCriticAgent, step_num: int, seed:int = 42):
+    world_model.eval()
+    agent.eval()
+
+    vec_env = build_vec_env(env_name, image_size, num_envs=num_envs, seed=seed)
+    print(f"evaluation at step {step_num}")
+    sum_reward = np.zeros(num_envs)
+    current_obs, current_info = vec_env.reset()
+    context_obs = deque(maxlen=16)
+    context_action = deque(maxlen=16)
+
+    final_rewards = []
+    # for total_steps in tqdm(range(max_steps//num_envs)):
+    while True:
+        # sample part >>>
+        with torch.no_grad():
+            if len(context_action) == 0:
+                action = vec_env.action_space.sample()
+            else:
+                context_latent = world_model.encode_obs(torch.cat(list(context_obs), dim=1))
+                model_context_action = np.stack(list(context_action), axis=1)
+                model_context_action = torch.Tensor(model_context_action).cuda()
+                prior_flattened_sample, last_dist_feat = world_model.calc_last_dist_feat(context_latent, model_context_action)
+                action = agent.sample_as_env_action(
+                    torch.cat([prior_flattened_sample, last_dist_feat], dim=-1),
+                    greedy=False
+                )
+
+        context_obs.append(rearrange(torch.Tensor(current_obs).cuda(), "B H W C -> B 1 C H W")/255)
+        context_action.append(action)
+
+        obs, reward, done, truncated, info = vec_env.step(action)
+        # cv2.imshow("current_obs", process_visualize(obs[0]))
+        # cv2.waitKey(10)
+
+        done_flag = np.logical_or(done, truncated)
+        if done_flag.any():
+            for i in range(num_envs):
+                if done_flag[i]:
+                    final_rewards.append(sum_reward[i])
+                    sum_reward[i] = 0
+                    if len(final_rewards) == num_episode:
+                        print("Mean reward: " + colorama.Fore.YELLOW + f"{np.mean(final_rewards)}" + colorama.Style.RESET_ALL)
+                        wandb.log({"eval_return": np.mean(final_rewards)}, step=step_num, commit=True)
+
+                        return np.mean(final_rewards)
+
+        # update current_obs, current_info and sum_reward
+        sum_reward += reward
+        current_obs = obs
+        current_info = info
+        # <<< sample part
+
 
 @torch.no_grad()
 def world_model_imagine_data(replay_buffer: ReplayBuffer,
@@ -198,6 +253,17 @@ def joint_train_world_model_agent(env_name, max_steps, num_envs, image_size,
             print(colorama.Fore.GREEN + f"Saving model at total steps {total_steps}" + colorama.Style.RESET_ALL)
             torch.save(world_model.state_dict(), f"ckpt/{name}/world_model_{total_steps}.pth")
             torch.save(agent.state_dict(), f"ckpt/{name}/agent_{total_steps}.pth")
+            episode_avg_return = eval_episodes(
+                num_episode=20,
+                env_name=env_name,
+                num_envs=num_envs,
+                max_steps=max_steps,
+                image_size=image_size,
+                world_model=world_model,
+                agent=agent,
+                step_num=total_steps*num_envs,
+                seed = seed,
+            )
 
 
 def build_world_model(conf, action_dim, device: torch.device):
@@ -222,7 +288,8 @@ def build_agent(conf, action_dim, device: torch.device):
         gamma=conf.Models.Agent.Gamma,
         lambd=conf.Models.Agent.Lambda,
         entropy_coef=conf.Models.Agent.EntropyCoef,
-        device=device
+        device=device,
+        dist="categorical",
     ).to(device)
 
 def _wandb_init(cfg: DictConfig):
@@ -235,10 +302,10 @@ def _wandb_init(cfg: DictConfig):
             mode = "disabled"
 
         wandb_run = wandb.init(config=config_dict, project=cfg.wandb.project_name, name=expName,
-                                    mode=mode)  # wandb object has a set of configs associated with it as well 
+                                    mode=mode, entity="zarifikram")  # wandb object has a set of configs associated with it as well 
         return wandb_run
 
-@hydra.main(config_path="../GIT-STORM/config_files", config_name="STORM")
+@hydra.main(config_path="../gstorm/config_files", config_name="STORM_Atari")
 def main(conf: DictConfig):  
     # ignore warnings
     
