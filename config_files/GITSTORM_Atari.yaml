@@ -7,7 +7,7 @@ BasicSettings:
   Base: "/space/mlica"
   Environment: "ALE/Boxing-v5"
   n: "Atari-MaskGit"
-  config_path: "config_files/STORM_Atari.yaml"
+  config_path: "config_files/GITSTORM_Atari.yaml"
   env_name: "ALE/Boxing-v5"
   trajectory_path: "trajectories/Atari/Atari.pkl"
   pretrained_path: None
@@ -24,7 +24,7 @@ hydra:
       dir: logs/${now:%Y-%m-%d}/${now:%H-%M-%S}/ckpt/ # path where checkpoints are saved
 
 JointTrainAgent:
-  ModelType: STORM
+  ModelType: GIT-STORM
   SampleMaxSteps: 102000 # 102000
   BufferMaxLength: 100000
   BufferWarmUp: 1024

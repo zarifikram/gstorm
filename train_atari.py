@@ -27,7 +27,7 @@ from replay_buffer import ReplayBuffer
 import env_wrapper
 import agents
 from sub_models.functions_losses import symexp
-from sub_models.world_models import WorldModel, MSELoss
+from sub_models.world_models import STORMWorldModel, WorldModel, MSELoss
 
 
 def build_single_env(env_name, image_size, seed):
@@ -48,9 +48,22 @@ def build_vec_env(env_name, image_size, num_envs, seed):
     vec_env = gymnasium.vector.AsyncVectorEnv(env_fns=env_fns)
     return vec_env
 
+@torch.no_grad()
+def random_pixel_shift(frames, shift_prob):
+        # Generate a mask where each pixel is marked to be shifted or not based on probability
+        mask = torch.rand(frames.shape).to(frames.device) < shift_prob
 
-def train_world_model_step(replay_buffer: ReplayBuffer, world_model: WorldModel, batch_size, demonstration_batch_size, batch_length, logger):
+        # Generate random values for the pixels that will be shifted
+        random_values = torch.rand(frames.shape).to(frames.device)
+
+        # Apply random values where the mask is True (pixels to be shifted)
+        shifted_frames = torch.where(mask, random_values, frames).to(frames.device)
+
+        return shifted_frames
+
+def train_world_model_step(replay_buffer: ReplayBuffer, world_model: WorldModel, batch_size, demonstration_batch_size, batch_length, p_noise, logger):
     obs, action, reward, termination = replay_buffer.sample(batch_size, demonstration_batch_size, batch_length)
+    obs = random_pixel_shift(obs, p_noise) # for ablation
     world_model.update(obs, action, reward, termination, logger=logger)
 
 @torch.no_grad()
@@ -98,7 +111,7 @@ def eval_episodes(num_episode, env_name, max_steps, num_envs, image_size,
                     sum_reward[i] = 0
                     if len(final_rewards) == num_episode:
                         print("Mean reward: " + colorama.Fore.YELLOW + f"{np.mean(final_rewards)}" + colorama.Style.RESET_ALL)
-                        wandb.log({"eval_return": np.mean(final_rewards)}, step=step_num, commit=True)
+                        wandb.log({"eval_return": np.mean(final_rewards)})
 
                         return np.mean(final_rewards)
 
@@ -140,7 +153,7 @@ def joint_train_world_model_agent(env_name, max_steps, num_envs, image_size,
                                   batch_size, demonstration_batch_size, batch_length,
                                   imagine_batch_size, imagine_demonstration_batch_size,
                                   imagine_context_length, imagine_batch_length,
-                                  save_every_steps, seed, logger, name, device:torch.device):
+                                  save_every_steps, p_noise, seed, logger, name, device:torch.device):
     # create ckpt dir
     os.makedirs(f"ckpt/{name}", exist_ok=True)
 
@@ -210,6 +223,7 @@ def joint_train_world_model_agent(env_name, max_steps, num_envs, image_size,
                 batch_size=batch_size,
                 demonstration_batch_size=demonstration_batch_size,
                 batch_length=batch_length,
+                p_noise=p_noise,
                 logger=logger
             )
 
@@ -267,16 +281,28 @@ def joint_train_world_model_agent(env_name, max_steps, num_envs, image_size,
 
 
 def build_world_model(conf, action_dim, device: torch.device):
-    return WorldModel(
-        in_channels=conf.Models.WorldModel.InChannels,
-        action_dim=action_dim,
-        transformer_max_length=conf.Models.WorldModel.TransformerMaxLength,
-        transformer_hidden_dim=conf.Models.WorldModel.TransformerHiddenDim,
-        transformer_num_layers=conf.Models.WorldModel.TransformerNumLayers,
-        transformer_num_heads=conf.Models.WorldModel.TransformerNumHeads,
-        device=device,
-        conf=conf
-    ).to(device)
+    if conf.JointTrainAgent.ModelType == "GIT-STORM":
+        return WorldModel(
+            in_channels=conf.Models.WorldModel.InChannels,
+            action_dim=action_dim,
+            transformer_max_length=conf.Models.WorldModel.TransformerMaxLength,
+            transformer_hidden_dim=conf.Models.WorldModel.TransformerHiddenDim,
+            transformer_num_layers=conf.Models.WorldModel.TransformerNumLayers,
+            transformer_num_heads=conf.Models.WorldModel.TransformerNumHeads,
+            device=device,
+            conf=conf
+        ).to(device)
+    elif conf.JointTrainAgent.ModelType == "STORM":
+        return STORMWorldModel(
+            in_channels=conf.Models.WorldModel.InChannels,
+            action_dim=action_dim,
+            transformer_max_length=conf.Models.WorldModel.TransformerMaxLength,
+            transformer_hidden_dim=conf.Models.WorldModel.TransformerHiddenDim,
+            transformer_num_layers=conf.Models.WorldModel.TransformerNumLayers,
+            transformer_num_heads=conf.Models.WorldModel.TransformerNumHeads,
+            device=device,
+            conf=conf
+        ).to(device)
 
 
 def build_agent(conf, action_dim, device: torch.device):
@@ -360,6 +386,7 @@ def main(conf: DictConfig):
             imagine_context_length=conf.JointTrainAgent.ImagineContextLength,
             imagine_batch_length=conf.JointTrainAgent.ImagineBatchLength,
             save_every_steps=conf.JointTrainAgent.SaveEverySteps,
+            p_noise=conf.Ablation.p_noise,
             seed=conf.BasicSettings.Seed,
             logger=logger,
             name=conf.BasicSettings.n,
