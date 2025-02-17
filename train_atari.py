@@ -27,7 +27,7 @@ from replay_buffer import ReplayBuffer
 import env_wrapper
 import agents
 from sub_models.functions_losses import symexp
-from sub_models.world_models import STORMWorldModel, WorldModel, MSELoss
+from sub_models.world_models import DINOSTORMWorldModel, STORMWorldModel, WorldModel, MSELoss
 
 
 def build_single_env(env_name, image_size, seed):
@@ -265,8 +265,8 @@ def joint_train_world_model_agent(env_name, max_steps, num_envs, image_size,
         # save model per episode
         if total_steps % (save_every_steps//num_envs) == 0:
             print(colorama.Fore.GREEN + f"Saving model at total steps {total_steps}" + colorama.Style.RESET_ALL)
-            torch.save(world_model.state_dict(), f"ckpt/{name}/world_model_{total_steps}.pth")
-            torch.save(agent.state_dict(), f"ckpt/{name}/agent_{total_steps}.pth")
+            # torch.save(world_model.state_dict(), f"ckpt/{name}/world_model_{total_steps}.pth")
+            # torch.save(agent.state_dict(), f"ckpt/{name}/agent_{total_steps}.pth")
             episode_avg_return = eval_episodes(
                 num_episode=20,
                 env_name=env_name,
@@ -303,6 +303,17 @@ def build_world_model(conf, action_dim, device: torch.device):
             device=device,
             conf=conf
         ).to(device)
+    elif conf.JointTrainAgent.ModelType == "DINO-STORM":
+        return DINOSTORMWorldModel(
+            in_channels=conf.Models.WorldModel.InChannels,
+            action_dim=action_dim,
+            transformer_max_length=conf.Models.WorldModel.TransformerMaxLength,
+            transformer_hidden_dim=conf.Models.WorldModel.TransformerHiddenDim,
+            transformer_num_layers=conf.Models.WorldModel.TransformerNumLayers,
+            transformer_num_heads=conf.Models.WorldModel.TransformerNumHeads,
+            device=device,
+            conf=conf
+        ).to(device)
 
 
 def build_agent(conf, action_dim, device: torch.device):
@@ -328,7 +339,7 @@ def _wandb_init(cfg: DictConfig):
             mode = "disabled"
 
         wandb_run = wandb.init(config=config_dict, project=cfg.wandb.project_name, name=expName,
-                                    mode=mode, entity="zarifikram")  # wandb object has a set of configs associated with it as well 
+                                    mode=mode, entity="zarifikram", resume="allow")  # wandb object has a set of configs associated with it as well 
         return wandb_run
 
 @hydra.main(config_path="../gstorm/config_files", config_name="STORM_Atari")

@@ -20,7 +20,7 @@ env_name=$1
 task_name=$2
 seed=$3
 
-exp_name=${env_name}_${task_name}-STORM-life_done-wm_2L512D8H-1M-seed_${seed}
+exp_name=${env_name}_${task_name}-STORM-1M-seed_${seed}
 wandb_exp_name=storm_${env_name}${task_name}_seed${seed}
 proj_name=BS-STORM-Test
 MUJOCO_GL=egl nohup python train_dmc.py  --config-name STORM_DMC  \

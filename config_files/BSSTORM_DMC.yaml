@@ -7,7 +7,7 @@ BasicSettings:
   Base: "/space/mlica"
   Environment: "ALE/Boxing-v5"
   n: "Atari-MaskGit"
-  config_path: "config_files/STORM_DMC.yaml"
+  config_path: "config_files/BSSTORM_DMC.yaml"
   env_name: "walker"
   task_name: "walk"
   trajectory_path: "trajectories/Atari/Atari.pkl"
@@ -17,9 +17,9 @@ BasicSettings:
 
 
 wandb:
-  project_name: "GS-transformer"
+  project_name: "GS-num_layers"
   log: False
-  exp_name: "STORM"
+  exp_name: "BSSTORM"
 
 hydra:
   run:
@@ -27,7 +27,7 @@ hydra:
 
 
 JointTrainAgent:
-  ModelType: STORM
+  ModelType: BS-STORM
   SampleMaxSteps: 1002000 # 102000
   BufferMaxLength: 100000
   BufferWarmUp: 1024 #1024
@@ -52,7 +52,7 @@ Models:
     TransformerHiddenDim: 512
     TransformerNumLayers: 2
     TransformerNumHeads: 8
-    MixerType: concat #concat, concat+attn, z+attn 
+    MixerType: concat #concat, concat+attn, z+attn
 
   Agent:
     NumLayers: 2

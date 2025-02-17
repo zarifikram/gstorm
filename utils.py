@@ -9,7 +9,19 @@ import time
 import yacs
 from yacs.config import CfgNode as CN
 
+def create_cartesian_product_examples(sequence_length):
+    # precompute timestep pairs (t, t+k) for the forward and backward encoders
+    ft = torch.arange(sequence_length, dtype=torch.int32) # [0, 1 .... T-1]
+    dt = torch.arange(2,sequence_length, dtype=torch.int32)
+    combinations = torch.cartesian_prod(ft, dt)
 
+    combinations[:, 1] = combinations[:, 0] + combinations[:, 1]
+    fb_pairs = combinations.clone()
+
+    #make sure no fb_pair goes over limit.
+    fb_pairs = fb_pairs[combinations[:,1] < sequence_length]
+    return fb_pairs, fb_pairs[:,1] - fb_pairs[:, 0]
+    
 def seed_np_torch(seed=20001118):
     random.seed(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)

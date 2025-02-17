@@ -12,3 +12,5 @@ opencv-python
 gymnasium[atari,accept-rom-license]
 hydra-core
 tensordict
+torchrl
+dm-control

@@ -28,7 +28,7 @@ from replay_buffer import ReplayBuffer
 import env_wrapper
 import agents
 from sub_models.functions_losses import symexp
-from sub_models.world_models import WorldModel, MSELoss, STORMWorldModel
+from sub_models.world_models import WorldModel, MSELoss, STORMWorldModel, BSSTORMWorldModel
 from dmc_env import build_single_env, build_vec_env
 
 
@@ -289,6 +289,17 @@ def build_world_model(conf, action_dim, device: torch.device):
             device=device,
             conf=conf
         ).to(device)
+    elif conf.JointTrainAgent.ModelType == "BS-STORM":
+        return BSSTORMWorldModel(
+            in_channels=conf.Models.WorldModel.InChannels,
+            action_dim=action_dim,
+            transformer_max_length=conf.Models.WorldModel.TransformerMaxLength,
+            transformer_hidden_dim=conf.Models.WorldModel.TransformerHiddenDim,
+            transformer_num_layers=conf.Models.WorldModel.TransformerNumLayers,
+            transformer_num_heads=conf.Models.WorldModel.TransformerNumHeads,
+            device=device,
+            conf=conf
+        ).to(device)
 
 def build_agent(conf, action_dim, device: torch.device):
     return agents.ActorCriticAgent(
@@ -312,7 +323,7 @@ def _wandb_init(cfg: DictConfig):
             mode = "disabled"
 
         wandb_run = wandb.init(config=config_dict, project=cfg.wandb.project_name, name=cfg.wandb.exp_name,
-                                    mode=mode, entity="zarifikram")  # wandb object has a set of configs associated with it as well 
+                                    mode=mode, entity="zarifikram", resume='allow')  # wandb object has a set of configs associated with it as well 
         return wandb_run
 
 @hydra.main(config_path="../gstorm/config_files", config_name="STORM_DMC", version_base="1.1")

@@ -16,7 +16,7 @@ BasicSettings:
 
 wandb:
   project_name: "GIT-STORM"
-  log: True
+  log: False
   exp_name: "Frostbite_optimized"
 
 hydra:
